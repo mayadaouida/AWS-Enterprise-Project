@@ -1,0 +1,38 @@
+# Database Configuration
+jdbc.driverClassName=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://{{ hostvars[groups['mariadb'][0]].private_ip_address }}:3306/accounts?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
+jdbc.username={{ hostvars[groups['mariadb'][0]]['db_user'] }}
+jdbc.password={{ hostvars[groups['mariadb'][0]]['db_password'] }}
+
+# Memcached Configuration
+memcached.active.host={{ hostvars[groups['memcached'][0]].private_ip_address }}
+memcached.active.port=11211
+memcached.standBy.host={{ hostvars[groups['memcached'][0]].private_ip_address }}
+memcached.standBy.port=11211
+
+# RabbitMQ Configuration
+rabbitmq.address={{ hostvars[groups['rabbitmq'][0]].private_ip_address }}
+rabbitmq.port=5672
+rabbitmq.username={{ hostvars[groups['rabbitmq'][0]]['rabbitmq_user'] }}
+rabbitmq.password={{ hostvars[groups['rabbitmq'][0]]['rabbitmq_password'] }}
+
+# Elasticsearch Configuration
+elasticsearch.host={{ hostvars[groups['elasticsearch'][0]].private_ip_address }}
+elasticsearch.port=9200
+elasticsearch.cluster=vprofile
+elasticsearch.node=vprofilenode
+
+# Application Configuration
+spring.servlet.multipart.max-file-size=128KB
+spring.servlet.multipart.max-request-size=128KB
+logging.level.org.springframework.security=DEBUG
+spring.security.user.name=admin_vp
+spring.security.user.password={{ app_admin_password }}
+spring.security.user.roles=ADMIN
+spring.mvc.view.prefix=/WEB-INF/views/
+spring.mvc.view.suffix=.jsp
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=false
+logging.level.org.hibernate.SQL=OFF
+logging.level.org.hibernate.type=OFF
+logging.level.com.visualpathit.account.service.SecurityServiceImpl=OFF

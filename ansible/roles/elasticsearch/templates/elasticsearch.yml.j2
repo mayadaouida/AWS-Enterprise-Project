@@ -1,0 +1,13 @@
+cluster.name: vprofile
+node.name: vprofilenode
+
+network.host: {{ hostvars[groups['elasticsearch'][0]].private_ip_address }}
+http.port: 9200
+
+discovery.type: single-node
+
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+xpack.security.enabled: false
+bootstrap.memory_lock: false

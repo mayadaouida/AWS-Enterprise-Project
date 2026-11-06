@@ -1,0 +1,36 @@
+---
+- name: Apply common configuration to all servers
+  hosts: aws_ec2
+  become: true
+  roles:
+    - common
+
+- name: Configure MariaDB server
+  hosts: mariadb
+  become: true
+  roles:
+    - mariadb
+
+- name: Configure RabbitMQ server
+  hosts: rabbitmq
+  become: true
+  roles:
+    - rabbitmq
+
+- name: Configure Memcached server
+  hosts: memcached
+  become: true
+  roles:
+    - memcached
+
+- name: Configure Elasticsearch server
+  hosts: elasticsearch
+  become: true
+  roles:
+    - elasticsearch
+
+- name: Configure application server
+  hosts: app
+  become: true
+  roles:
+    - app

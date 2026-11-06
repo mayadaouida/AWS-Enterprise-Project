@@ -1,0 +1,100 @@
+---
+- name: Create Elasticsearch system user
+  ansible.builtin.user:
+    name: elasticsearch
+    system: true
+    shell: /usr/sbin/nologin
+    home: /opt/elasticsearch
+    create_home: false
+
+- name: Set vm.max_map_count for Elasticsearch
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: true
+
+- name: Create Elasticsearch data and log directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0750'
+  loop:
+    - /var/lib/elasticsearch
+    - /var/log/elasticsearch
+
+- name: Download Elasticsearch 7.10.2
+  ansible.builtin.get_url:
+    url: https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.10.2-linux-x86_64.tar.gz
+    dest: /tmp/elasticsearch-7.10.2.tar.gz
+    mode: '0644'
+
+- name: Create Elasticsearch installation directory
+  ansible.builtin.file:
+    path: /opt/elasticsearch
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0755'
+
+- name: Extract Elasticsearch
+  ansible.builtin.unarchive:
+    src: /tmp/elasticsearch-7.10.2.tar.gz
+    dest: /opt/elasticsearch
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+    creates: /opt/elasticsearch/bin/elasticsearch
+
+- name: Set Elasticsearch installation ownership
+  ansible.builtin.file:
+    path: /opt/elasticsearch
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+    recurse: true
+
+- name: Configure Elasticsearch
+  ansible.builtin.template:
+    src: elasticsearch.yml.j2
+    dest: /opt/elasticsearch/config/elasticsearch.yml
+    owner: elasticsearch
+    group: elasticsearch
+    mode: '0640'
+  notify: Restart Elasticsearch
+
+- name: Configure Elasticsearch systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/elasticsearch.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Elasticsearch
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=elasticsearch
+      Group=elasticsearch
+      Environment="ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      Environment="ES_HOME=/opt/elasticsearch"
+      WorkingDirectory=/opt/elasticsearch
+      ExecStart=/opt/elasticsearch/bin/elasticsearch
+      Restart=on-failure
+      LimitNOFILE=65535
+      TimeoutStartSec=180
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart Elasticsearch
+
+- name: Ensure Elasticsearch is enabled and running
+  ansible.builtin.systemd:
+    name: elasticsearch
+    state: started
+    enabled: true
+    daemon_reload: true

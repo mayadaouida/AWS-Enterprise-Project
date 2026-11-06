@@ -1,0 +1,33 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+
+# Secrets and credentials
+*.tfvars
+*.tfvars.json
+.env
+.env.*
+.vault_pass
+vault-password*
+*.pem
+*.key
+credentials
+.aws/
+
+# Ansible
+*.retry
+
+# Local packages
+*.deb
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.bak

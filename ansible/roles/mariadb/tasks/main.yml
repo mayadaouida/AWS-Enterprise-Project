@@ -1,0 +1,60 @@
+---
+- name: Install MariaDB server and Python MySQL driver
+  ansible.builtin.apt:
+    name:
+      - mariadb-server
+      - python3-pymysql
+    state: present
+    update_cache: true
+
+- name: Ensure MariaDB is enabled and running
+  ansible.builtin.service:
+    name: mariadb
+    state: started
+    enabled: true
+
+- name: Create application database
+  community.mysql.mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: Check if VProfile database was already imported
+  ansible.builtin.stat:
+    path: /var/lib/mysql/.vprofile-imported
+  register: vprofile_import_marker
+
+- name: Copy VProfile database dump to server
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../files/accountsdb.sql"
+    dest: /tmp/accountsdb.sql
+    owner: root
+    group: root
+    mode: '0644'
+  when: not vprofile_import_marker.stat.exists
+
+- name: Import VProfile database
+  community.mysql.mysql_db:
+    name: "{{ db_name }}"
+    state: import
+    target: /tmp/accountsdb.sql
+    login_unix_socket: /run/mysqld/mysqld.sock
+  when: not vprofile_import_marker.stat.exists
+
+- name: Mark VProfile database as imported
+  ansible.builtin.file:
+    path: /var/lib/mysql/.vprofile-imported
+    state: touch
+    owner: mysql
+    group: mysql
+    mode: '0644'
+  when: not vprofile_import_marker.stat.exists
+
+- name: Create application database user
+  community.mysql.mysql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    host: "{{ db_user_host }}"
+    priv: "{{ db_name }}.*:ALL"
+    state: present
+    login_unix_socket: /run/mysqld/mysqld.sock

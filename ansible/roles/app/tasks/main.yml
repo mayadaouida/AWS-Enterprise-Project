@@ -1,0 +1,159 @@
+
+---
+- name: Install Java 17, Maven, Git and required packages
+  ansible.builtin.apt:
+    name:
+      - openjdk-17-jdk
+      - maven
+      - git
+      - wget
+      - curl
+      - unzip
+      - rsync
+    state: present
+    update_cache: true
+
+- name: Create Tomcat group
+  ansible.builtin.group:
+    name: tomcat
+    system: true
+    state: present
+
+- name: Create Tomcat service user
+  ansible.builtin.user:
+    name: tomcat
+    group: tomcat
+    home: /opt/tomcat
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: false
+    state: present
+
+- name: Download Apache Tomcat 10.1
+  ansible.builtin.get_url:
+    url: https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.61/bin/apache-tomcat-10.1.61.tar.gz
+    dest: /tmp/apache-tomcat-10.1.61.tar.gz
+    mode: '0644'
+
+- name: Stop old Tomcat before upgrade
+  ansible.builtin.systemd:
+    name: tomcat
+    state: stopped
+  failed_when: false
+
+- name: Remove old Tomcat installation
+  ansible.builtin.file:
+    path: /opt/tomcat
+    state: absent
+
+- name: Create Tomcat installation directory
+  ansible.builtin.file:
+    path: /opt/tomcat
+    state: directory
+    owner: tomcat
+    group: tomcat
+    mode: '0755'
+
+- name: Extract Tomcat
+  ansible.builtin.unarchive:
+    src: /tmp/apache-tomcat-10.1.61.tar.gz
+    dest: /opt/tomcat
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+    creates: /opt/tomcat/bin/catalina.sh
+
+- name: Set Tomcat ownership
+  ansible.builtin.file:
+    path: /opt/tomcat
+    state: directory
+    owner: tomcat
+    group: tomcat
+    recurse: true
+
+- name: Make Tomcat scripts executable
+  ansible.builtin.file:
+    path: /opt/tomcat/bin
+    state: directory
+    mode: '0755'
+
+- name: Create Tomcat systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/tomcat.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Apache Tomcat 10.1
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=tomcat
+      Group=tomcat
+      Environment="JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
+      Environment="CATALINA_HOME=/opt/tomcat"
+      Environment="CATALINA_BASE=/opt/tomcat"
+      ExecStart=/opt/tomcat/bin/catalina.sh run
+      Restart=on-failure
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart Tomcat
+
+- name: Clone VProfile source code
+  ansible.builtin.git:
+    repo: https://github.com/hkhcoder/vprofile-project.git
+    dest: /opt/vprofile-project
+    version: local
+    force: true
+
+- name: Configure VProfile application properties
+  ansible.builtin.template:
+    src: application.properties.j2
+    dest: /opt/vprofile-project/src/main/resources/application.properties
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Build VProfile application with Maven
+  ansible.builtin.command:
+    cmd: mvn -B clean install
+    chdir: /opt/vprofile-project
+  environment:
+    MAVEN_OPTS: "-Xmx512m"
+
+- name: Stop Tomcat before deploying application
+  ansible.builtin.service:
+    name: tomcat
+    state: stopped
+  failed_when: false
+
+- name: Remove default Tomcat ROOT application
+  ansible.builtin.file:
+    path: /opt/tomcat/webapps/ROOT
+    state: absent
+
+- name: Remove previous ROOT WAR
+  ansible.builtin.file:
+    path: /opt/tomcat/webapps/ROOT.war
+    state: absent
+
+- name: Deploy VProfile WAR
+  ansible.builtin.copy:
+    src: /opt/vprofile-project/target/vprofile-v2.war
+    dest: /opt/tomcat/webapps/ROOT.war
+    remote_src: true
+    owner: tomcat
+    group: tomcat
+    mode: '0644'
+  notify: Restart Tomcat
+
+- name: Ensure Tomcat is enabled and running
+  ansible.builtin.systemd:
+    name: tomcat
+    state: started
+    enabled: true
+    daemon_reload: true

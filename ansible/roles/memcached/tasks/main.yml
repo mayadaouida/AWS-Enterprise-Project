@@ -1,0 +1,40 @@
+---
+- name: Install Memcached
+  ansible.builtin.apt:
+    name: memcached
+    state: present
+    update_cache: true
+
+- name: Configure Memcached memory
+  ansible.builtin.lineinfile:
+    path: /etc/memcached.conf
+    regexp: '^-m\s+'
+    line: '-m 256'
+  notify: Restart Memcached
+
+- name: Configure Memcached port
+  ansible.builtin.lineinfile:
+    path: /etc/memcached.conf
+    regexp: '^-p\s+'
+    line: '-p 11211'
+  notify: Restart Memcached
+
+- name: Bind Memcached to private network interface
+  ansible.builtin.lineinfile:
+    path: /etc/memcached.conf
+    regexp: '^-l\s+'
+    line: "-l {{ ansible_default_ipv4.address }}"
+  notify: Restart Memcached
+
+- name: Disable Memcached UDP
+  ansible.builtin.lineinfile:
+    path: /etc/memcached.conf
+    regexp: '^-U\s+'
+    line: '-U 0'
+  notify: Restart Memcached
+
+- name: Ensure Memcached is enabled and running
+  ansible.builtin.service:
+    name: memcached
+    state: started
+    enabled: true

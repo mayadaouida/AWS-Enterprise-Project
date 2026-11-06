@@ -1,0 +1,17 @@
+---
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - eu-north-1
+
+filters:
+  instance-state-name: running
+  "tag:Project": enterprise-aws
+
+hostnames:
+  - instance-id
+
+keyed_groups:
+  - key: tags.Role
+    prefix: ""
+    separator: ""
